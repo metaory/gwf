@@ -1,0 +1,11 @@
+{
+  "name": "gwf",
+  "version": "0.0.1",
+  "dependencies": {
+    
+  },
+  "scripts": {
+    "start": "yarn release",
+    "release" :"bash release.sh"
+  }
+}
