@@ -7,13 +7,6 @@ ENV="PRODUCTION"
 OWNER="metaory"
 REPO="gwf"
 
-git fetch origin
-GIT_LOG=$(git shortlog origin/production..origin/stage)
-GIT_COMMIT_COUNT=$(git log --oneline origin/stage ^origin/production | wc -l)
-GIT_DIFF_STAT=$(git diff --shortstat origin/production..origin/stage)
-GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-GIT_CONTRIB_COUNT=$(git shortlog -sn)
-
 bold=$(tput bold)
 normal="\033[0m"
 red="\033[1;31m"
@@ -34,6 +27,14 @@ log () {
 }
 
 # ############################################################################ #
+
+log 0 "${bold}FETCHING ${red}origin ${normal}${bold}..."
+git fetch origin
+GIT_LOG=$(git shortlog origin/production..origin/stage)
+GIT_COMMIT_COUNT=$(git log --oneline origin/stage ^origin/production | wc -l)
+GIT_DIFF_STAT=$(git diff --shortstat origin/production..origin/stage)
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+GIT_CONTRIB_COUNT=$(git shortlog -sn)
 
 if [ -z $GIT_ACCESS_TOKEN ]; then
   log -1 "${bold}export GIT_ACCESS_TOKEN='<github_access_token>'"
