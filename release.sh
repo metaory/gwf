@@ -3,7 +3,8 @@
 VERSION=$(cat ./package.json  | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g')
 VERSION=${VERSION#" "}
 RELEASE_DATE=`date +%b-%d`
-ENV="PRODUCTION"
+BASE_BRANCH="production"
+STAGE_BRANCH="stage"
 OWNER="metaory"
 REPO="gwf"
 
@@ -30,9 +31,8 @@ log () {
 
 log 0 "${bold}FETCHING ${red}origin ${normal}${bold}..."
 git fetch origin
-GIT_LOG=$(git shortlog origin/production..origin/stage)
-GIT_COMMIT_COUNT=$(git log --oneline origin/stage ^origin/production | wc -l)
-GIT_DIFF_STAT=$(git diff --shortstat origin/production..origin/stage)
+GIT_COMMIT_COUNT=$(git log --oneline origin/"$STAGE_BRANCH" ^origin/"$BASE_BRANCH" | wc -l)
+GIT_DIFF_STAT=$(git diff --shortstat origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH")
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 GIT_CONTRIB_COUNT=$(git shortlog -sn)
 
@@ -47,7 +47,7 @@ prompt_commit_summary () {
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}VIEW COMMIT SUMMARY? [y/N]${normal} "
     read -r  view_commit_summary
     if [[ "$view_commit_summary" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
-        git log --graph --pretty='%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --all origin/production..origin/stage
+        git log --graph --pretty="%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit --all origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH"
     fi
 }
 
@@ -99,7 +99,7 @@ collect () {
     # ############################################################################ #
     # ## RELEASE BODY ############################################################ #
     # ############################################################################ #
-    release_body=$(git log --pretty=format:"[%an] %s" --date=short origin/production..origin/stage)
+    release_body=$(git log --pretty=format:"[%an] %s" --date=short origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH")
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}RELEASE BODY:${normal}\n"
     printf "${bold}${release_body}\n"
 
@@ -117,15 +117,15 @@ collect () {
 
 release () {
     log 0 "${bold}RELEASING ${red}${release_title} ${normal}${bold}..."
-    git checkout stage
-    git pull origin stage
+    git checkout $STAGE_BRANCH
+    git pull origin $STAGE_BRANCH
     git commit -am "$release_title"
-    git push origin stage
-    git checkout -f production
-    git pull origin production
-    git merge origin/stage -m "$release_title"
+    git push origin $STAGE_BRANCH
+    git checkout -f $BASE_BRANCH
+    git pull origin $BASE_BRANCH
+    git merge origin/$STAGE_BRANCH -m "$release_title"
     git tag $tag_name
-    git push origin production
+    git push origin $BASE_BRANCH
     git push --tags
     sleep 5
     release_body="${release_body//$'\n'/<br/>}"
@@ -135,14 +135,14 @@ release () {
     -d @- << EOF
 {
     "tag_name": "$tag_name",
-    "target_commitish": "stage",
+    "target_commitish": "$STAGE_BRANCH",
     "name": "$release_title",
     "body": "$release_body",
     "draft": $draft_release,
     "prerelease": $pre_release
 }
 EOF
-    git checkout stage
+    git checkout $STAGE_BRANCH
 }
 
 prompt_commit_summary
