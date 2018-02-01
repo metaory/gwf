@@ -128,7 +128,7 @@ release () {
     sleep 5
     API_JSON='{"tag_name": "'$tag_name'","target_commitish": "stage","name": "'$release_title'","body": "'$release_body'","draft": '$draft_release',"prerelease": '$pre_release'}'
     echo "$API_JSON"
-    curl -i \
+    curl -i -S -s \
         -H "Content-Type:application/json" \
         -X POST --data "$API_JSON" https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GIT_ACCESS_TOKEN
 
