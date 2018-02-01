@@ -114,26 +114,36 @@ collect () {
 
 # ############################################################################ #
 
+
 release () {
     log 0 "${bold}RELEASING ${red}${release_title} ${normal}${bold}..."
-    git checkout stage
-    git pull origin stage
-    git commit -am "$release_title"
-    git push origin stage
-    git checkout -f production
-    git pull origin production
-    git merge origin/stage -m "$release_title"
-    git tag $tag_name
-    git push origin production
-    git push --tags
-    sleep 5
-    API_JSON='{"tag_name": "'$tag_name'","target_commitish": "stage","name": "'$release_title'","body": "'$release_body'","draft": '$draft_release',"prerelease": '$pre_release'}'
-    echo "$API_JSON"
-    curl -i -S -s \
-        -H "Content-Type:application/json" \
-        -X POST --data "$API_JSON" https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GIT_ACCESS_TOKEN
-
-    git checkout stage
+#    git checkout stage
+#    git pull origin stage
+#    git commit -am "$release_title"
+#    git push origin stage
+#    git checkout -f production
+#    git pull origin production
+#    git merge origin/stage -m "$release_title"
+#    git tag $tag_name
+#    git push origin production
+#    git push --tags
+#    sleep 5
+#    API_JSON='{"tag_name": "'$tag_name'","target_commitish": "stage","name": "'$release_title'","body": "'$release_body'","draft": '$draft_release',"prerelease": '$pre_release'}'
+#    echo "$API_JSON"
+    curl -i -S -s -v \
+    -H "Content-Type:application/json" \
+    -X POST https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GIT_ACCESS_TOKEN \
+    -d @- << EOF
+{
+    "tag_name": "$tag_name",
+    "target_commitish": "stage",
+    "name": "'$release_title'",
+    "body": "'$release_body'",
+    "draft": '$draft_release',
+    "prerelease": '$pre_release'
+}
+EOF
+#    git checkout stage
 }
 
 prompt_commit_summary
