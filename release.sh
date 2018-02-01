@@ -7,6 +7,7 @@ ENV="PRODUCTION"
 OWNER="metaory"
 REPO="gwf"
 
+git fetch origin
 GIT_LOG=$(git shortlog origin/production..origin/stage)
 GIT_COMMIT_COUNT=$(git log --oneline origin/stage ^origin/production | wc -l)
 GIT_DIFF_STAT=$(git diff --shortstat origin/production..origin/stage)
@@ -59,10 +60,10 @@ collect () {
     read -r  tag_name
     tag_name=${tag_name:-"v$VERSION"}
     log 0 "${bold}TAG NAME:  ${red}${tag_name}"
-    log 0 "${bold}SEARCHING REMOTE FOR TAG NAME ${red}${tag_name}"
-    if [ $(git ls-remote --tags origin | grep -c $tag_name) -gt 1 ]; then
+    log 0 "${bold}SEARCHING REMOTE FOR TAG NAME ${red}${tag_name} ${normal}${bold}..."
+    if [ $(git ls-remote --tags origin | grep -c $tag_name) -ne 0 ]; then
       log -1 "${bold}${red}TAG ${tag_name} EXISTS "
-      exit
+#      exit
     fi
     # ############################################################################ #
     # ## DRAFT RELEASE ########################################################### #
@@ -113,30 +114,24 @@ collect () {
 # ############################################################################ #
 
 release () {
-    log 0 "${bold}RELEASING ${red}${release_title}${normal} ${bold}..."
+    log 0 "${bold}RELEASING ${red}${release_title} ${normal}${bold}..."
     git checkout stage
-    echo "1::"
     git pull origin stage
-    echo "2::"
     git commit -am "$release_title"
-    echo "3::"
     git push origin stage
-    echo "4::"
     git checkout -f production
-    echo "5::"
     git pull origin production
-    echo "6::"
     git merge origin/stage -m "$release_title"
-    echo "7::"
     git tag $tag_name
-    echo "8::"
     git push origin production
-    echo "9::"
     git push --tags
-    sleep 10
+    sleep 5
     API_JSON='{"tag_name": "'$tag_name'","target_commitish": "stage","name": "'$release_title'","body": "'$release_body'","draft": '$draft_release',"prerelease": '$pre_release'}'
     echo "$API_JSON"
-    curl --data "$API_JSON" https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$1
+    curl -i \
+        -H "Content-Type:application/json" \
+        -X POST --data "$API_JSON" https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GIT_ACCESS_TOKEN
+
     git checkout stage
 }
 
