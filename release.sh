@@ -137,10 +137,10 @@ release () {
 {
     "tag_name": "$tag_name",
     "target_commitish": "stage",
-    "name": "'$release_title'",
-    "body": "'$release_body'",
-    "draft": '$draft_release',
-    "prerelease": '$pre_release'
+    "name": "$release_title",
+    "body": "$release_body",
+    "draft": "$draft_release",
+    "prerelease": "$pre_release"
 }
 EOF
 #    git checkout stage
