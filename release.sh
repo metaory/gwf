@@ -31,7 +31,7 @@ log () {
 
 # ## ACCESS TOKEN CHECK ###################################################### #
 # ############################################################################ #
-if [ -z $GITHUB_ACCESS_TOKN ]; then
+if [ -z $GITHUB_ACCESS_TOKEN ]; then
   log -1 "${bold}export GITHUB_ACCESS_TOKEN=github_access_token >> ~/.zshrc"
   exit
 fi
