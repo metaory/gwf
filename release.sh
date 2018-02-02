@@ -1,13 +1,15 @@
 #!/bin/bash
 
-VERSION=$(cat ./package.json  | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g')
-VERSION=${VERSION#" "}
-RELEASE_DATE=`date +%b-%d`
+# ## CONFIGS ################################################################# #
+# ############################################################################ #
+REPO="gwf"
+OWNER="metaory"
+PACKAGE_JSON="./package.json"
 BASE_BRANCH="production"
 STAGE_BRANCH="stage"
-OWNER="metaory"
-REPO="gwf"
 
+# ## COLORS ################################################################## #
+# ############################################################################ #
 bold=$(tput bold)
 normal="\033[0m"
 red="\033[1;31m"
@@ -16,8 +18,8 @@ green="\033[1;32m"
 yellow="\033[1;33m"
 grey="\033[1;30m"
 
+# ## LOGGER ################################################################## #
 # ############################################################################ #
-
 log () {
     case "${1}" in
         -1) level="[${red}ERROR${normal}]";;
@@ -27,34 +29,37 @@ log () {
     printf "${normal}$level $2 ${normal}\n"
 }
 
+# ## ACCESS TOKEN CHECK ###################################################### #
 # ############################################################################ #
+if [ -z $GITHUB_ACCESS_TOKN ]; then
+  log -1 "${bold}export GITHUB_ACCESS_TOKEN=github_access_token >> ~/.zshrc"
+  exit
+fi
 
+# ## INITIAL FETCHES ######################################################### #
+# ############################################################################ #
 log 0 "${bold}FETCHING ${red}origin ${normal}${bold}..."
-git fetch origin
+$(git fetch origin)
 GIT_COMMIT_COUNT=$(git log --oneline origin/"$STAGE_BRANCH" ^origin/"$BASE_BRANCH" | wc -l)
 GIT_DIFF_STAT=$(git diff --shortstat origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH")
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 GIT_CONTRIB_COUNT=$(git shortlog -sn)
+VERSION=$(cat ./$PACKAGE_JSON | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g')
+VERSION=${VERSION#" "}
 
-if [ -z $GIT_ACCESS_TOKEN ]; then
-  log -1 "${bold}export GIT_ACCESS_TOKEN='<github_access_token>'"
-  exit
-fi
-
+# ## SUMMARY PROMPT ########################################################## #
 # ############################################################################ #
-
 prompt_commit_summary () {
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}VIEW COMMIT SUMMARY? [y/N]${normal} "
     read -r  view_commit_summary
     if [[ "$view_commit_summary" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
-        git log --graph --pretty="%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit --all origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH"
+        git log --graph --pretty="%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --no-merges --abbrev-commit --all origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH"
     fi
 }
 
+# ## COLLECTS ################################################################ #
 # ############################################################################ #
-
 collect () {
-    # ############################################################################ #
     # ## TAG NAME ################################################################ #
     # ############################################################################ #
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}TAG NAME? ${grey}(v$VERSION)${red} "
@@ -66,7 +71,7 @@ collect () {
       log -1 "${bold}${red}TAG ${tag_name} EXISTS "
       exit
     fi
-    # ############################################################################ #
+
     # ## DRAFT RELEASE ########################################################### #
     # ############################################################################ #
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}DRAFT RELEASE? [y/N]${red} "
@@ -77,7 +82,7 @@ collect () {
         draft_release="false"
     fi
     log 0 "${bold}DRAFT RELEASE: ${red}${draft_release}"
-    # ############################################################################ #
+
     # ## PRE RELEASE ############################################################# #
     # ############################################################################ #
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}PRE RELEASE? [y/N]${red} "
@@ -88,7 +93,7 @@ collect () {
         pre_release="false"
     fi
     log 0 "${bold}PRE RELEASE: ${red}${pre_release}"
-    # ############################################################################ #
+
     # ## RELEASE TITLE ########################################################### #
     # ############################################################################ #
     default_release_title="$tag_name"
@@ -96,13 +101,15 @@ collect () {
     read -r  release_title
     release_title=${release_title:-"$default_release_title"}
     log 0 "${bold}RELEASE TITLE: ${red}${release_title}"
-    # ############################################################################ #
+
     # ## RELEASE BODY ############################################################ #
     # ############################################################################ #
-    release_body=$(git log --pretty=format:"[%an] %s" --date=short origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH")
+    release_body=$(git log --pretty=format:"**[%an]** %s" --no-merges --date=short origin/"$BASE_BRANCH"..origin/"$STAGE_BRANCH")
     printf "${normal}[${blue}INFO${normal}] ${bold}${yellow}RELEASE BODY:${normal}\n"
     printf "${bold}${release_body}\n"
 
+    # ## RELEASE PROMPT ########################################################## #
+    # ############################################################################ #
     printf "${normal}[${blue}INFO${normal}] ${bold}${red}RELEASE? [y/N] "
     read -r  release
     if [[ "$release" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
@@ -114,7 +121,8 @@ collect () {
 
 # ############################################################################ #
 
-
+# ## RELEASE ################################################################# #
+# ############################################################################ #
 release () {
     log 0 "${bold}RELEASING ${red}${release_title} ${normal}${bold}..."
     git checkout $STAGE_BRANCH
@@ -131,7 +139,7 @@ release () {
     release_body="${release_body//$'\n'/<br/>}"
     curl -i \
     -H "Content-Type:application/json" \
-    -X POST https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GIT_ACCESS_TOKEN \
+    -X POST https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GITHUB_ACCESS_TOKEN \
     -d @- << EOF
 {
     "tag_name": "$tag_name",
@@ -144,6 +152,8 @@ release () {
 EOF
     git checkout $STAGE_BRANCH
 }
+
+# ############################################################################ #
 
 prompt_commit_summary
 collect
