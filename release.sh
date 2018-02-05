@@ -38,6 +38,75 @@ if [ -z $GITHUB_ACCESS_TOKEN ]; then
   exit
 fi
 
+# ## RELEASE ################################################################# #
+# ############################################################################ #
+commence () {
+log 0 "${bold}RELEASING ${red}${release_title} ${normal}${bold}..."
+git checkout $STAGE_BRANCH
+git pull origin $STAGE_BRANCH
+git commit -am "$release_title"
+git push origin $STAGE_BRANCH
+git checkout -f $BASE_BRANCH
+git pull origin $BASE_BRANCH
+git merge origin/$STAGE_BRANCH -m "$release_title"
+git tag $tag_name
+git push origin $BASE_BRANCH
+git push --tags
+sleep 5
+release_body="${release_body//$'\n'/<br/>}"
+curl -i \
+-H "Content-Type:application/json" \
+-X POST https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GITHUB_ACCESS_TOKEN \
+-d @- << EOF
+{
+"tag_name": "$tag_name",
+"target_commitish": "$STAGE_BRANCH",
+"name": "$release_title",
+"body": "$release_body",
+"draft": $draft_release,
+"prerelease": $pre_release
+}
+EOF
+git checkout $STAGE_BRANCH
+
+broadcast_to_feeds
+}
+
+# ############################################################################ #
+broadcast_to_feeds () {
+read -d '' payLoad << EOF
+{
+        "channel": "#${REPO}",
+        "username": "$(hostname)",
+        "icon_emoji": ":sunglasses:",
+        "attachments": [
+            {
+                "fallback": "${release_title}",
+                "color": "good",
+                "title": "${release_title}",
+                "fields": [{
+                    "title": "message",
+                    "value": "${release_body}",
+                    "short": false
+                }]
+            }
+        ]
+    }
+EOF
+
+
+statusCode=$(curl \
+        --write-out %{http_code} \
+        --silent \
+        --output /dev/null \
+        -X POST \
+        -H 'Content-type: application/json' \
+        --data "${payLoad}" ${SLACK_URL})
+
+echo ${statusCode}
+
+}
+    # ############################################################################ #
 # ## INITIAL FETCHES ######################################################### #
 # ############################################################################ #
 log 0 "${bold}FETCHING ${red}origin ${normal}${bold}..."
@@ -113,80 +182,11 @@ printf "${bold}${release_body}\n"
 printf "${normal}[${blue}INFO${normal}] ${bold}${red}RELEASE? [y/N] "
 read -r  release
 if [[ "$release" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
-  release
+  commence
 else
   exit
 fi
 
 # ############################################################################ #
 
-# ## RELEASE ################################################################# #
-# ############################################################################ #
-release () {
-log 0 "${bold}RELEASING ${red}${release_title} ${normal}${bold}..."
-git checkout $STAGE_BRANCH
-git pull origin $STAGE_BRANCH
-git commit -am "$release_title"
-git push origin $STAGE_BRANCH
-git checkout -f $BASE_BRANCH
-git pull origin $BASE_BRANCH
-git merge origin/$STAGE_BRANCH -m "$release_title"
-git tag $tag_name
-git push origin $BASE_BRANCH
-git push --tags
-sleep 5
-release_body="${release_body//$'\n'/<br/>}"
-curl -i \
--H "Content-Type:application/json" \
--X POST https://api.github.com/repos/$OWNER/$REPO/releases\?access_token\=$GITHUB_ACCESS_TOKEN \
--d @- << EOF
-{
-"tag_name": "$tag_name",
-"target_commitish": "$STAGE_BRANCH",
-"name": "$release_title",
-"body": "$release_body",
-"draft": $draft_release,
-"prerelease": $pre_release
-}
-EOF
-git checkout $STAGE_BRANCH
-
-broadcast_to_feeds
-}
-
-# ############################################################################ #
-broadcast_to_feeds () {
-read -d '' payLoad << EOF
-{
-        "channel": "#${REPO}",
-        "username": "$(hostname)",
-        "icon_emoji": ":sunglasses:",
-        "attachments": [
-            {
-                "fallback": "${release_title}",
-                "color": "good",
-                "title": "${release_title}",
-                "fields": [{
-                    "title": "message",
-                    "value": "${release_body}",
-                    "short": false
-                }]
-            }
-        ]
-    }
-EOF
-
-
-statusCode=$(curl \
-        --write-out %{http_code} \
-        --silent \
-        --output /dev/null \
-        -X POST \
-        -H 'Content-type: application/json' \
-        --data "${payLoad}" ${SLACK_URL})
-
-echo ${statusCode}
-
-}
-    # ############################################################################ #
 
